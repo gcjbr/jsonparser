@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/gcjbr/jsonparser/lexer"
@@ -8,9 +9,14 @@ import (
 
 func main() {
 	bytes, _ := os.ReadFile("tests/step1/valid.json")
-	tokens := lexer.Tokenize(string(bytes))
+	l := lexer.NewLexer(string(bytes))
 
-	for _, token := range tokens {
-		token.Debug()
+	for {
+		t := l.NextToken()
+		if t.Type == lexer.EOF {
+			break
+		}
+		fmt.Println(t.Type)
 	}
+
 }

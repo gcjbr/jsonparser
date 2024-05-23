@@ -1,96 +1,56 @@
 package lexer
 
-import (
-	"fmt"
-	"regexp"
-)
-
-type regexPattern struct {
-	regex   *regexp.Regexp
-	handler regexHandler
+type Lexer struct {
+	input        string
+	position     int  // Points to the current char (ch)
+	readPosition int  // Points to the next char to be read
+	ch           byte // current char
 }
 
-type regexHandler func(lex *lexer, regex *regexp.Regexp)
+// Read current char and advance the lexer to the next char
 
-type lexer struct {
-	Tokens   []Token
-	patterns []regexPattern
-	source   string
-	position int
-}
-
-func Tokenize(source string) []Token {
-	lex := createLexer(source)
-
-	for !lex.at_eof() {
-		matched := false
-		remainder := lex.remainder()
-		//fmt.Printf("Current remainder: %s\n", remainder)
-
-		for _, pattern := range lex.patterns {
-			loc := pattern.regex.FindStringIndex(remainder)
-			//fmt.Printf("Checking pattern: %v, loc: %v\n", pattern.regex.String(), loc)
-
-			if loc != nil && loc[0] == 0 {
-				//fmt.Println("Match found, handling...")
-				pattern.handler(lex, pattern.regex)
-				matched = true
-				break
-			}
-		}
-
-		if !matched {
-			fmt.Printf("No match found for remainder: %s at position: %d\n", remainder, lex.position)
-			panic("Lexer error at " + remainder)
-		}
+func (l *Lexer) readChar() {
+	// If end of input, set ch to 0
+	// ASCII for NUL
+	if l.readPosition >= len(l.input) {
+		l.ch = 0
+	} else {
+		l.ch = l.input[l.readPosition]
 	}
-	lex.push(NewToken(EOF, "EOF"))
-
-	return lex.Tokens
+	l.position = l.readPosition
+	l.readPosition++
 }
 
-func (lex *lexer) advance(n int) {
-	lex.position += n
+func (l *Lexer) NextToken() Token {
+	var t Token
+
+	switch l.ch {
+	case '{':
+		t.Type = OPEN_CURLY_BRACE
+	case '}':
+		t.Type = CLOSE_CURLY_BRACE
+	case 0:
+		t.Type = EOF
+	default:
+		t.Type = EOF
+	}
+	l.readChar()
+
+	return t
 }
 
-func (lex *lexer) push(token Token) {
-	lex.Tokens = append(lex.Tokens, token)
-}
-
-func (lex *lexer) at() byte {
-	return lex.source[lex.position]
-}
-
-func (lex *lexer) remainder() string {
-	return lex.source[lex.position:]
-}
-
-func (lex *lexer) at_eof() bool {
-	return lex.position >= len(lex.source)
-}
-
-func defaultHandler(tokenType TokenType, value string) regexHandler {
-	return func(lex *lexer, regex *regexp.Regexp) {
-		// Advance lexer position by the length of the match
-		lex.advance(len(value))
-		// Push new token to lexer's token list
-		lex.push(NewToken(tokenType, value))
+func newToken(t TokenType, ch byte) Token {
+	return Token{
+		Type:  t,
+		Value: string(ch),
 	}
 }
 
-func createLexer(source string) *lexer {
-	return &lexer{
-		position: 0,
-		source:   source,
-		Tokens:   make([]Token, 0),
-		patterns: []regexPattern{
-			{regexp.MustCompile(`\{`), defaultHandler(OPEN_CURLY_BRACE, "{")},
-			{regexp.MustCompile(`\}`), defaultHandler(CLOSE_CURLY_BRACE, "}")},
-			{regexp.MustCompile(`\s+`), skipHandler},
-		},
+func NewLexer(input string) *Lexer {
+	l := &Lexer{
+		input: input,
 	}
-}
+	l.readChar()
 
-func skipHandler(lex *lexer, regex *regexp.Regexp) {
-	lex.advance(len(regex.FindString(lex.remainder())))
+	return l
 }
